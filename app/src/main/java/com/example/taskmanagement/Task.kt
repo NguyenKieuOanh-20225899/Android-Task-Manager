@@ -3,23 +3,20 @@ package com.example.taskmanagement
 /**
  * Slide 3: Enum Class để quản lý độ ưu tiên
  */
-enum class Priority {
-    LOW, MEDIUM, HIGH
-}
+// File: app/src/main/java/com/example/taskmanagement/Task.kt
+enum class Priority { LOW, MEDIUM, HIGH, URGENT } // Bổ sung mức độ khẩn cấp
 
-/**
- * Slide 1 & 3: Data Class cho Task
- */
+
+
 data class Task(
     val id: Int,
     val title: String,
-
-    // Slide 1: Null Safety cho mô tả công việc
     val description: String? = null,
-
-    // Giá trị mặc định
     val priority: Priority = Priority.LOW,
-
-    // var vì trạng thái này có thể thay đổi
-    var isCompleted: Boolean = false
+    var isCompleted: Boolean = false,
+    val category: String = "Cá nhân",
+    val date: String,            // Ngày lên kế hoạch (yyyy-MM-dd)
+    val reminderTime: String?,   // Giờ nhắc nhở (HH:mm)
+    val repeatDays: List<String>? = null, // Danh sách "T2", "T3",..., "CN"
+    val isAllDay: Boolean = false // Thiết lập công việc cả ngày
 )

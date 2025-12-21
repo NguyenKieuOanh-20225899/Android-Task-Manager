@@ -3,21 +3,37 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/homeBeforeFragment"> <fragment
-    android:id="@+id/homeBeforeFragment"
-    android:name="com.example.taskmanagement.HomeBeforeFragment"
-    android:label="Welcome"
-    tools:layout="@layout/fragment_home_before">
-    <action
-        android:id="@+id/action_homeBeforeFragment_to_homeFragment"
-        app:destination="@id/homeFragment" />
-</fragment>
+    app:startDestination="@id/homeBeforeFragment">
+
+    <fragment
+        android:id="@+id/homeBeforeFragment"
+        android:name="com.example.taskmanagement.HomeBeforeFragment"
+        android:label="Welcome"
+        tools:layout="@layout/fragment_home_before">
+        <action
+            android:id="@+id/action_homeBeforeFragment_to_calendarFragment"
+            app:destination="@id/calendarFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/calendarFragment"
+        android:name="com.example.taskmanagement.CalendarFragment"
+        android:label="Calendar"
+        tools:layout="@layout/fragment_calendar">
+        <action
+            android:id="@+id/action_calendarFragment_to_homeFragment"
+            app:destination="@id/homeFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/homeFragment"
         android:name="com.example.taskmanagement.HomeFragment"
         android:label="Home"
         tools:layout="@layout/fragment_home">
+        <argument
+            android:name="selectedDate"
+            app:argType="string"
+            android:defaultValue="today" />
         <action
             android:id="@+id/action_homeFragment_to_addEditFragment"
             app:destination="@id/addEditFragment" />
@@ -27,5 +43,10 @@
         android:id="@+id/addEditFragment"
         android:name="com.example.taskmanagement.AddEditFragment"
         android:label="Add/Edit Task"
-        tools:layout="@layout/fragment_add_edit" />
+        tools:layout="@layout/fragment_add_edit">
+        <argument
+            android:name="selectedDate"
+            app:argType="string" />
+    </fragment>
+
 </navigation>

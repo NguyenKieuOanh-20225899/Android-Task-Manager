@@ -7,6 +7,9 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.example.taskmanagement.databinding.FragmentHomeBinding
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class HomeFragment : Fragment(R.layout.fragment_home) {
 
@@ -15,36 +18,56 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        Log.d(TAG, "onViewCreated: Khởi tạo giao diện")
-
         val binding = FragmentHomeBinding.bind(view)
 
-        // Slide 8: Lấy ViewModel chung của Activity để dùng chung dữ liệu với AddEditFragment
+        // Khởi tạo ViewModel dùng chung Activity
         viewModel = ViewModelProvider(requireActivity()).get(TaskViewModel::class.java)
 
-        // Khởi tạo Adapter với Lambda callback để xử lý khi nhấn CheckBox (Slide 2 & 8)
-        val adapter = TaskAdapter(emptyList()) { task ->
-            viewModel.toggleTaskStatus(task) // Cập nhật trạng thái thông qua ViewModel
-            Log.d("TaskAction", "Đã thay đổi trạng thái: ${task.title}")
-        }
+        // 1. Lấy ngày được chọn từ CalendarFragment truyền sang
+        // Nếu không có (mở app lần đầu), mặc định lấy ngày hiện tại
+        val selectedDate = arguments?.getString("selectedDate") ?: getCurrentDate()
+        binding.tvCurrentDateHeader.text = "Kế hoạch ngày: $selectedDate"
 
+        // 2. Tự động lọc danh sách theo ngày này ngay khi vào màn hình
+        viewModel.filterByDate(selectedDate)
+
+        // Thiết lập Adapter cho RecyclerView
+        val adapter = TaskAdapter(
+            emptyList(),
+            onTaskChecked = { task -> viewModel.toggleTaskStatus(task) },
+            onTaskLongClick = { task ->
+                showDeleteDialog(task)
+            }
+        )
         binding.rvTasks.adapter = adapter
 
-        // Slide 8: Quan sát LiveData - Tự động cập nhật UI khi danh sách thay đổi
+        // 3. Quan sát danh sách công việc (đã được lọc theo ngày)
         viewModel.tasks.observe(viewLifecycleOwner) { updatedList ->
             adapter.updateData(updatedList)
+            // Hiển thị thông báo nếu ngày này không có task nào
+            if (updatedList.isEmpty()) {
+                Log.d(TAG, "Không có nhiệm vụ cho ngày $selectedDate")
+            }
         }
 
-        // Slide 6: Điều hướng sang màn hình thêm mới
+        // 4. Quan sát tiến độ hoàn thành (%) để cập nhật ProgressBar
+        viewModel.completionRate.observe(viewLifecycleOwner) { rate ->
+            binding.pbCompletion.progress = rate
+        }
+
+        // 5. Điều hướng sang màn hình Thêm mới (Truyền kèm ngày hiện tại để làm mặc định)
         binding.fabAdd.setOnClickListener {
-            findNavController().navigate(R.id.action_homeFragment_to_addEditFragment)
+            val bundle = Bundle().apply {
+                putString("selectedDate", selectedDate)
+            }
+            findNavController().navigate(R.id.action_homeFragment_to_addEditFragment, bundle)
         }
 
-        // Slide 2: Logic lọc "Smart" sử dụng Chips
+        // 6. Logic lọc trạng thái (Tất cả, Chưa xong, Đã xong) trong ngày đó
         binding.chipGroupFilter.setOnCheckedStateChangeListener { _, checkedIds ->
             if (checkedIds.isNotEmpty()) {
                 when (checkedIds.first()) {
-                    R.id.chipAll -> viewModel.showAllTasks()
+                    R.id.chipAll -> viewModel.filterByDate(selectedDate) // Lọc lại theo ngày
                     R.id.chipPending -> viewModel.showPendingTasks()
                     R.id.chipCompleted -> viewModel.showCompletedTasks()
                 }
@@ -52,24 +75,23 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
     }
 
-    // Slide 7: Ghi Log đầy đủ các trạng thái Lifecycle để theo dõi
-    override fun onStart() {
-        super.onStart()
-        Log.d(TAG, "onStart: Fragment bắt đầu hiển thị")
+    private fun getCurrentDate(): String {
+        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
+    // Các hàm Lifecycle để theo dõi log
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume: Người dùng bắt đầu tương tác")
+        Log.d(TAG, "onResume: Người dùng đang xem danh sách công việc")
     }
-
-    override fun onPause() {
-        super.onPause()
-        Log.d(TAG, "onPause: Fragment tạm dừng")
-    }
-
-    override fun onStop() {
-        super.onStop()
-        Log.d(TAG, "onStop: Fragment không còn hiển thị")
+    private fun showDeleteDialog(task: Task) {
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Xóa kế hoạch")
+            .setMessage("Bạn có chắc chắn muốn xóa '${task.title}' không?")
+            .setPositiveButton("Xóa") { _, _ ->
+                viewModel.deleteTask(task) // Cần thêm hàm này vào ViewModel
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
     }
 }

@@ -14,7 +14,7 @@ class HomeBeforeFragment : Fragment(R.layout.fragment_home_before) {
         val btnStart = view.findViewById<Button>(R.id.btnStart)
         btnStart.setOnClickListener {
             // Điều hướng đến HomeFragment (màn hình danh sách công việc)
-            findNavController().navigate(R.id.action_homeBeforeFragment_to_homeFragment)
+            findNavController().navigate(R.id.action_homeBeforeFragment_to_calendarFragment)
         }
     }
 }
