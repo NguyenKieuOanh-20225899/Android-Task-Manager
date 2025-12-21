@@ -34,9 +34,16 @@
             android:name="selectedDate"
             app:argType="string"
             android:defaultValue="today" />
+
         <action
             android:id="@+id/action_homeFragment_to_addEditFragment"
             app:destination="@id/addEditFragment" />
+
+        <action
+            android:id="@+id/action_homeFragment_to_calendarFragment"
+            app:destination="@id/calendarFragment"
+            app:popUpTo="@id/homeFragment"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment
@@ -48,5 +55,11 @@
             android:name="selectedDate"
             app:argType="string" />
     </fragment>
+
+    <action
+        android:id="@+id/action_global_homeBeforeFragment"
+        app:destination="@id/homeBeforeFragment"
+        app:popUpTo="@id/nav_graph"
+        app:popUpToInclusive="true" />
 
 </navigation>

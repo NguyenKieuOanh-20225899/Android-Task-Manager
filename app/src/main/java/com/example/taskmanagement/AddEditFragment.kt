@@ -1,5 +1,6 @@
 package com.example.taskmanagement
 
+import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
 import android.util.Log
@@ -21,16 +22,39 @@ class AddEditFragment : Fragment(R.layout.fragment_add_edit) {
     private val binding get() = _binding!!
 
     private var selectedTime: String? = null
+    private var currentPlanDate: String = "" // Biến lưu trữ ngày đang được chọn
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentAddEditBinding.bind(view)
 
-        // 1. Nhận ngày được chọn từ màn hình trước (Calendar hoặc Home)
-        val planDate = arguments?.getString("selectedDate") ?: "2025-12-21"
-        binding.tvPlanDate.text = "Ngày kế hoạch: $planDate"
+        // 1. Nhận ngày ban đầu từ màn hình trước
+        currentPlanDate = arguments?.getString("selectedDate") ?: "2025-12-21"
+        updateDateDisplay()
 
-        // 2. Xử lý chọn giờ nhắc nhở
+        // 2. LỰA CHỌN 1: Nhấn vào dòng ngày để hiện DatePickerDialog (Chọn nhanh)
+        binding.tvPlanDate.setOnClickListener {
+            val cal = Calendar.getInstance()
+            // Cố gắng phân tích ngày hiện tại để hiển thị lịch đúng vị trí
+            val dateParts = currentPlanDate.split("-")
+            if (dateParts.size == 3) {
+                cal.set(dateParts[0].toInt(), dateParts[1].toInt() - 1, dateParts[2].toInt())
+            }
+
+            DatePickerDialog(requireContext(), { _, year, month, day ->
+                // Cập nhật lại biến currentPlanDate sau khi chọn
+                currentPlanDate = String.format("%04d-%02d-%02d", year, month + 1, day)
+                updateDateDisplay()
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
+        // 3. LỰA CHỌN 2: Nhấn nút quay về màn hình Calendar ô vuông lớn
+        binding.btnBackToCalendar.setOnClickListener {
+            // Quay lại màn hình CalendarFragment trong đồ thị điều hướng
+            findNavController().popBackStack(R.id.calendarFragment, false)
+        }
+
+        // 4. Xử lý chọn giờ nhắc nhở
         binding.btnPickTime.setOnClickListener {
             val cal = Calendar.getInstance()
             TimePickerDialog(requireContext(), { _, hour, minute ->
@@ -39,49 +63,57 @@ class AddEditFragment : Fragment(R.layout.fragment_add_edit) {
             }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show()
         }
 
-        // 3. Xử lý trạng thái All Day (Cả ngày)
+        // 5. Xử lý trạng thái All Day (Cả ngày)
         binding.swAllDay.setOnCheckedChangeListener { _, isChecked ->
             binding.btnPickTime.isEnabled = !isChecked
-            if (isChecked) binding.btnPickTime.text = "Cả ngày"
-            else binding.btnPickTime.text = selectedTime ?: "Chọn giờ"
+            if (isChecked) {
+                binding.btnPickTime.text = "Cả ngày"
+            } else {
+                binding.btnPickTime.text = selectedTime ?: "Chọn giờ"
+            }
         }
 
-        // 4. Nút Lưu kế hoạch
+        // 6. Nút Lưu kế hoạch
         binding.btnSave.setOnClickListener {
             val title = binding.etTitle.text.toString().trim()
 
             if (title.isNotEmpty()) {
-                // Đọc mức độ ưu tiên từ ChipGroup
                 val priority = when (binding.cgPriority.checkedChipId) {
                     R.id.chipHigh -> Priority.HIGH
                     R.id.chipMedium -> Priority.MEDIUM
                     else -> Priority.LOW
                 }
 
-                // Đọc danh sách các thứ lặp lại (T2, T3...)
                 val repeatDays = mutableListOf<String>()
                 for (id in binding.cgRepeatDays.checkedChipIds) {
                     val chip = view.findViewById<Chip>(id)
                     repeatDays.add(chip.text.toString())
                 }
 
-                // Gọi ViewModel để lưu
+                // QUAN TRỌNG: Sử dụng currentPlanDate (ngày có thể đã thay đổi) thay vì planDate cũ
                 viewModel.addNewTask(
                     title = title,
-                    description = "", // Bạn có thể thêm EditText cho mô tả nếu muốn
+                    description = "",
                     priority = priority,
-                    date = planDate,
-                    reminderTime = selectedTime,
+                    date = currentPlanDate,
+                    reminderTime = if (binding.swAllDay.isChecked) null else selectedTime,
                     repeatDays = if (repeatDays.isEmpty()) null else repeatDays,
                     isAllDay = binding.swAllDay.isChecked
                 )
 
-                Log.d("TaskSave", "Đã lưu Task: $title cho ngày $planDate")
-                findNavController().popBackStack() // Quay lại màn hình danh sách
+                Log.d("TaskSave", "Đã lưu Task: $title cho ngày $currentPlanDate")
+
+                // Sau khi lưu, quay về màn hình HomeFragment để xem danh sách
+                findNavController().popBackStack(R.id.homeFragment, false)
             } else {
                 binding.etTitle.error = "Vui lòng nhập tên công việc"
             }
         }
+    }
+
+    // Hàm cập nhật text hiển thị ngày
+    private fun updateDateDisplay() {
+        binding.tvPlanDate.text = "Ngày kế hoạch: $currentPlanDate"
     }
 
     override fun onDestroyView() {

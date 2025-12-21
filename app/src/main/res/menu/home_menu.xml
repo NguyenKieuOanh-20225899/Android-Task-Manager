@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/menu_calendar"
+        android:icon="@android:drawable/ic_menu_my_calendar"
+        android:title="Chọn ngày"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/menu_welcome"
+        android:icon="@android:drawable/ic_menu_info_details"
+        android:title="Màn hình chào"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_home"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="Việc hôm nay"
+        app:showAsAction="never" />
+</menu>
