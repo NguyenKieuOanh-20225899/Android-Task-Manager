@@ -1,0 +1,48 @@
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <data>
+        <variable
+            name="task"
+            type="com.example.taskmanagement.Task" />
+    </data>
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        app:cardCornerRadius="8dp">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp">
+
+            <CheckBox
+                android:id="@+id/cbCompleted"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="@{task.completed}"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="@{task.title}"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@id/cbCompleted"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/tvPriority"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@{task.priority.toString()}"
+                app:layout_constraintTop_toBottomOf="@id/tvTitle"
+                app:layout_constraintStart_toEndOf="@id/cbCompleted" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.cardview.widget.CardView>
+</layout>
