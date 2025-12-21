@@ -1,16 +1,24 @@
 package com.example.taskmanagement
 
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TaskViewModel : ViewModel() {
+// Chuyển sang AndroidViewModel để sử dụng SharedPreferences thông qua Application context
+class TaskViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val sharedPrefs = application.getSharedPreferences("TaskPrefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
 
     // Danh sách gốc chứa tất cả công việc
-    private val allTasks = mutableListOf<Task>()
+    private var allTasks = mutableListOf<Task>()
 
     // LiveData quan sát danh sách hiển thị
     private val _tasks = MutableLiveData<List<Task>>()
@@ -20,25 +28,35 @@ class TaskViewModel : ViewModel() {
     private val _completionRate = MutableLiveData<Int>()
     val completionRate: LiveData<Int> get() = _completionRate
 
+    // Biến lưu trữ ngày đang lọc hiện tại để refresh UI chính xác
+    private var currentFilteringDate: String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
     init {
-        loadSampleTasks()
+        loadTasksFromDisk()
         updateProgress()
     }
 
-    private fun loadSampleTasks() {
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        allTasks.add(Task(1, "Chào mừng đến NoelDo", "Bắt đầu lập kế hoạch ngay", Priority.HIGH, date = today, reminderTime = "08:00"))
-        _tasks.value = allTasks
+    // --- Logic Lưu trữ Bền vững ---
+
+    private fun saveTasksToDisk() {
+        val json = gson.toJson(allTasks)
+        sharedPrefs.edit().putString("saved_tasks_list", json).apply()
     }
 
-    /**
-     * Hàm thêm mới công việc với đầy đủ tính năng thông minh:
-     * - 3 mức độ ưu tiên (LOW, MEDIUM, HIGH)
-     * - Ngày kế hoạch (từ Lịch)
-     * - Giờ nhắc nhở
-     * - Lặp lại từ T2 đến CN
-     * - Chế độ cả ngày
-     */
+    private fun loadTasksFromDisk() {
+        val json = sharedPrefs.getString("saved_tasks_list", null)
+        if (json != null) {
+            val type = object : TypeToken<MutableList<Task>>() {}.type
+            allTasks = gson.fromJson(json, type)
+        } else {
+            // Nếu lần đầu mở app, có thể nạp task chào mừng
+            allTasks = mutableListOf()
+        }
+        filterByDate(currentFilteringDate)
+    }
+
+    // --- Các hàm thao tác dữ liệu ---
+
     fun addNewTask(
         title: String,
         description: String? = null,
@@ -61,55 +79,54 @@ class TaskViewModel : ViewModel() {
         )
         allTasks.add(newTask)
 
-        // Mặc định sau khi thêm sẽ hiển thị danh sách của ngày vừa thêm
+        saveTasksToDisk() // Lưu vào máy ngay khi thêm mới
         filterByDate(date)
         updateProgress()
     }
-
-    // --- Logic Lọc Thông Minh ---
-
-    // Lọc công việc theo ngày được chọn từ Lịch (ô vuông)
-    fun filterByDate(date: String) {
-        _tasks.value = allTasks.filter { it.date == date }
-    }
-
-    fun showCompletedTasks() {
-        _tasks.value = allTasks.filter { it.isCompleted }
-    }
-
-    fun showPendingTasks() {
-        _tasks.value = allTasks.filter { !it.isCompleted }
-    }
-
-    fun showAllTasks() {
-        _tasks.value = allTasks.toList()
-    }
-
-    // --- Logic Trạng thái & Tiến độ ---
 
     fun toggleTaskStatus(task: Task) {
         val index = allTasks.indexOfFirst { it.id == task.id }
         if (index != -1) {
             allTasks[index].isCompleted = !allTasks[index].isCompleted
-            // Cập nhật lại danh sách hiện tại đang hiển thị để UI đổi màu/gạch chân
-            _tasks.value = _tasks.value?.toList()
+
+            saveTasksToDisk() // Lưu vào máy ngay khi thay đổi trạng thái
+            filterByDate(currentFilteringDate)
             updateProgress()
         }
     }
 
+    fun deleteTask(task: Task) {
+        allTasks.removeIf { it.id == task.id }
+
+        saveTasksToDisk() // Lưu vào máy ngay khi xóa
+        filterByDate(currentFilteringDate)
+        updateProgress()
+    }
+
+    // --- Logic Lọc & Hiển thị ---
+
+    fun filterByDate(date: String) {
+        currentFilteringDate = date
+        _tasks.value = allTasks.filter { it.date == date }
+    }
+
+    fun showCompletedTasks() {
+        _tasks.value = allTasks.filter { it.date == currentFilteringDate && it.isCompleted }
+    }
+
+    fun showPendingTasks() {
+        _tasks.value = allTasks.filter { it.date == currentFilteringDate && !it.isCompleted }
+    }
+
     private fun updateProgress() {
-        val total = allTasks.size
+        // Chỉ tính tiến độ cho ngày đang xem để người dùng không bị áp lực bởi tổng số task
+        val tasksToday = allTasks.filter { it.date == currentFilteringDate }
+        val total = tasksToday.size
         if (total == 0) {
             _completionRate.value = 0
             return
         }
-        val completed = allTasks.count { it.isCompleted }
+        val completed = tasksToday.count { it.isCompleted }
         _completionRate.value = (completed * 100) / total
-    }
-    fun deleteTask(task: Task) {
-        allTasks.removeIf { it.id == task.id }
-        // Sau khi xóa, lọc lại danh sách theo ngày đang xem để cập nhật UI
-        filterByDate(task.date)
-        updateProgress()
     }
 }
