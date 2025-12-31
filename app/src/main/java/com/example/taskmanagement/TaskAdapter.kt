@@ -38,7 +38,10 @@ class TaskAdapter(
 
         // 1. Hiển thị thông tin thời gian & lặp lại
         val timeDisplay = if (currentTask.isAllDay) "Cả ngày" else currentTask.reminderTime ?: "Không hẹn giờ"
-        val repeatDisplay = currentTask.repeatDays?.joinToString(", ") ?: ""
+
+        // SỬA TẠI ĐÂY: Vì repeatDays đã là String? nên không cần dùng joinToString
+        val repeatDisplay = currentTask.repeatDays ?: ""
+
         val baseInfo = if (repeatDisplay.isNotEmpty()) "$timeDisplay | Lặp lại: $repeatDisplay" else timeDisplay
 
         // Bổ sung logic hiển thị Tồn đọng (Màu sắc & Icon cảnh báo)
@@ -56,6 +59,7 @@ class TaskAdapter(
 
         // 2. Xử lý màu sắc vạch ưu tiên (Priority Indicator)
         val priorityColor = when (currentTask.priority) {
+            Priority.URGENT -> Color.parseColor("#880E4F") // Bổ sung màu cho URGENT nếu cần
             Priority.HIGH -> Color.parseColor("#D32F2F")
             Priority.MEDIUM -> Color.parseColor("#FBC02D")
             Priority.LOW -> Color.parseColor("#388E3C")
