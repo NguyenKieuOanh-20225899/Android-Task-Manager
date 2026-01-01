@@ -10,7 +10,9 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import java.util.Calendar
+import android.os.Build
 class TaskViewModel(application: Application) : AndroidViewModel(application) {
 
     // Khởi tạo Database và DAO (Tham khảo Lab 9.3)
@@ -162,9 +164,19 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: Exception) { "" }
     }
     private fun scheduleNotification(task: Task) {
+        // Nếu không có thời gian nhắc nhở hoặc đã hoàn thành thì không đặt báo thức
         if (task.reminderTime == null || task.isCompleted) return
 
         val alarmManager = getApplication<Application>().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // 1. Kiểm tra quyền cho Android 12+ (API 31+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.e("TaskViewModel", "Không có quyền SCHEDULE_EXACT_ALARM")
+                // Tại đây bạn có thể bắn một LiveData để Fragment hiển thị thông báo yêu cầu cấp quyền
+                return
+            }
+        }
 
         val intent = Intent(getApplication(), NotificationReceiver::class.java).apply {
             putExtra("TASK_ID", task.id)
@@ -179,25 +191,32 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Phân tích ngày và giờ từ chuỗi Task
+        // Phân tích thời gian
         val calendar = Calendar.getInstance()
-        val dateParts = task.date.split("-") // yyyy-MM-dd
-        val timeParts = task.reminderTime.split(":") // HH:mm
+        try {
+            val dateParts = task.date.split("-")
+            val timeParts = task.reminderTime!!.split(":")
+            calendar.set(Calendar.YEAR, dateParts[0].toInt())
+            calendar.set(Calendar.MONTH, dateParts[1].toInt() - 1)
+            calendar.set(Calendar.DAY_OF_MONTH, dateParts[2].toInt())
+            calendar.set(Calendar.HOUR_OF_DAY, timeParts[0].toInt())
+            calendar.set(Calendar.MINUTE, timeParts[1].toInt())
+            calendar.set(Calendar.SECOND, 0)
 
-        calendar.set(Calendar.YEAR, dateParts[0].toInt())
-        calendar.set(Calendar.MONTH, dateParts[1].toInt() - 1) // Tháng trong Calendar chạy từ 0-11
-        calendar.set(Calendar.DAY_OF_MONTH, dateParts[2].toInt())
-        calendar.set(Calendar.HOUR_OF_DAY, timeParts[0].toInt())
-        calendar.set(Calendar.MINUTE, timeParts[1].toInt())
-        calendar.set(Calendar.SECOND, 0)
-
-        // Chỉ đặt báo thức nếu thời gian này chưa trôi qua
-        if (calendar.timeInMillis > System.currentTimeMillis()) {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
-                pendingIntent
-            )
+            if (calendar.timeInMillis > System.currentTimeMillis()) {
+                // 2. Sử dụng try-catch để tránh crash do SecurityException
+                try {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                } catch (e: SecurityException) {
+                    Log.e("TaskViewModel", "Lỗi bảo mật khi đặt báo thức: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TaskViewModel", "Lỗi định dạng ngày/giờ: ${e.message}")
         }
     }
 }
