@@ -6,7 +6,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import java.util.Calendar
 class TaskViewModel(application: Application) : AndroidViewModel(application) {
 
     // Khởi tạo Database và DAO (Tham khảo Lab 9.3)
@@ -54,7 +58,16 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
                 repeatDays = repeatDays?.joinToString(","),
                 isAllDay = isAllDay
             )
-            taskDao.insert(newTask)
+
+            // 1. Thực hiện chèn và lấy ID thực tế từ Database trả về
+            val generatedId = taskDao.insert(newTask).toInt()
+
+            // 2. Tạo bản sao của Task với ID chính xác để lập lịch thông báo
+            val taskWithId = newTask.copy(id = generatedId)
+
+            // 3. Gọi hàm lập lịch thông báo (Đảm bảo bạn đã paste hàm scheduleNotification vào ViewModel)
+            scheduleNotification(taskWithId)
+
         }
     }
 
@@ -147,5 +160,44 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
                 else -> ""
             }
         } catch (e: Exception) { "" }
+    }
+    private fun scheduleNotification(task: Task) {
+        if (task.reminderTime == null || task.isCompleted) return
+
+        val alarmManager = getApplication<Application>().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        val intent = Intent(getApplication(), NotificationReceiver::class.java).apply {
+            putExtra("TASK_ID", task.id)
+            putExtra("TASK_TITLE", task.title)
+            putExtra("TASK_DESC", task.description)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            getApplication(),
+            task.id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Phân tích ngày và giờ từ chuỗi Task
+        val calendar = Calendar.getInstance()
+        val dateParts = task.date.split("-") // yyyy-MM-dd
+        val timeParts = task.reminderTime.split(":") // HH:mm
+
+        calendar.set(Calendar.YEAR, dateParts[0].toInt())
+        calendar.set(Calendar.MONTH, dateParts[1].toInt() - 1) // Tháng trong Calendar chạy từ 0-11
+        calendar.set(Calendar.DAY_OF_MONTH, dateParts[2].toInt())
+        calendar.set(Calendar.HOUR_OF_DAY, timeParts[0].toInt())
+        calendar.set(Calendar.MINUTE, timeParts[1].toInt())
+        calendar.set(Calendar.SECOND, 0)
+
+        // Chỉ đặt báo thức nếu thời gian này chưa trôi qua
+        if (calendar.timeInMillis > System.currentTimeMillis()) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                pendingIntent
+            )
+        }
     }
 }
