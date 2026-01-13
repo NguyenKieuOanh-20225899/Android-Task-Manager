@@ -103,7 +103,7 @@ class AddEditFragment : Fragment(R.layout.fragment_add_edit) {
 
                 Log.d("TaskSave", "Đã lưu Task: $title cho ngày $currentPlanDate")
 
-                // Sau khi lưu, quay về màn hình HomeFragment để xem danh sách
+                //  quay về màn hình HomeFragment để xem danh sách
                 findNavController().popBackStack(R.id.homeFragment, false)
             } else {
                 binding.etTitle.error = "Vui lòng nhập tên công việc"
