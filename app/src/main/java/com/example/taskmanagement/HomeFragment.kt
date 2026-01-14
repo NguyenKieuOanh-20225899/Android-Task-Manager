@@ -38,7 +38,13 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val adapter = TaskAdapter(
             emptyList(),
             onTaskChecked = { task -> viewModel.toggleTaskStatus(task) },
-            onTaskLongClick = { task -> showDeleteDialog(task) }
+            onTaskLongClick = { task -> showDeleteDialog(task) },
+            onEditClick = { task ->
+                val bundle = Bundle().apply {
+                    putParcelable("task_to_edit", task) // Truyền toàn bộ đối tượng Task sang màn hình sửa
+                }
+                findNavController().navigate(R.id.action_homeFragment_to_addEditFragment, bundle)
+            }
         )
         binding.rvTasks.adapter = adapter
 

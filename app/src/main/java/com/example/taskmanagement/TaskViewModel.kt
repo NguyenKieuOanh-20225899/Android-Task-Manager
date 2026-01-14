@@ -29,7 +29,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     val completionRate: LiveData<Int> get() = _completionRate
 
     private var currentFilteringDate: String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-
+    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     init {
         // Tự động cập nhật danh sách hiển thị mỗi khi database thay đổi
         _tasks.addSource(allTasksFromDb) { list ->
@@ -76,24 +76,78 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     // Giữ nguyên logic đảo trạng thái Task
     fun toggleTaskStatus(task: Task) {
         viewModelScope.launch(Dispatchers.IO) {
-            val updatedTask = task.copy(isCompleted = !task.isCompleted)
+            val updatedTask = task.copy(isCompleted = !task.isCompleted) // Đảo trạng thái
             taskDao.update(updatedTask)
         }
     }
+    private fun cancelNotification(task: Task) {
+        val alarmManager = getApplication<Application>().getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+        val intent = Intent(getApplication(), NotificationReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            getApplication(),
+            task.id, // Sử dụng ID đồng nhất để tìm đúng báo thức
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        alarmManager.cancel(pendingIntent)
+        Log.d("TaskViewModel", "Đã hủy báo thức cho Task: ${task.title}")
+    }
     // Giữ nguyên logic xóa Task
     fun deleteTask(task: Task) {
         viewModelScope.launch(Dispatchers.IO) {
+            cancelNotification(task)
             taskDao.delete(task)
         }
     }
 
     // Logic lọc giữ nguyên như cũ để tương thích với giao diện
     fun filterByDate(date: String) {
-        currentFilteringDate = date
-        allTasksFromDb.value?.let { applyFilter(it, date) }
+        try {
+            // Parse rồi format lại để đảm bảo luôn là yyyy-MM-dd
+            val parsedDate = dateFormat.parse(date)
+            currentFilteringDate = dateFormat.format(parsedDate!!)
+            allTasksFromDb.value?.let { applyFilter(it, currentFilteringDate) }
+        } catch (e: Exception) {
+            Log.e("TaskViewModel", "Định dạng ngày không hợp lệ: $date")
+        }
     }
+    // Trong TaskViewModel.kt
+    fun updateTask(
+        id: Int,
+        title: String,
+        description: String? = null,
+        priority: Priority,
+        date: String,
+        reminderTime: String?,
+        repeatDays: List<String>?,
+        isAllDay: Boolean,
+        isCompleted: Boolean
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedTask = Task(
+                id = id, // Sử dụng ID cũ để ghi đè
+                title = title,
+                description = description,
+                priority = priority,
+                date = date,
+                reminderTime = if (isAllDay) null else reminderTime,
+                repeatDays = repeatDays?.joinToString(","),
+                isAllDay = isAllDay,
+                isCompleted = isCompleted
+            )
 
+            // 1. Cập nhật vào Database
+            taskDao.update(updatedTask)
+
+            // 2. Quản lý thông báo: Hủy báo thức cũ và đặt lại nếu cần
+            cancelNotification(updatedTask)
+            if (!isCompleted && !isAllDay && reminderTime != null) {
+                scheduleNotification(updatedTask)
+            }
+        }
+    }
     private fun applyFilter(allList: List<Task>, date: String) {
         val selectedDayOfWeek = getDayOfWeek(date)
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -219,4 +273,19 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             Log.e("TaskViewModel", "Lỗi định dạng ngày/giờ: ${e.message}")
         }
     }
+    // Thêm hàm cập nhật Task
+    fun updateTask(task: Task) {
+        viewModelScope.launch(Dispatchers.IO) {
+            taskDao.update(task)
+
+            // Nếu task đã hoàn thành hoặc "Cả ngày", hủy báo thức cũ
+            if (task.isCompleted || task.isAllDay || task.reminderTime == null) {
+                cancelNotification(task)
+            } else {
+                // Nếu thay đổi giờ/ngày, hàm này sẽ tự động ghi đè báo thức cũ
+                scheduleNotification(task)
+            }
+        }
+    }
+
 }

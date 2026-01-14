@@ -11,7 +11,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.taskmanagement.databinding.FragmentAddEditBinding
 import com.google.android.material.chip.Chip
 import java.util.*
-
+import android.os.Build
 class AddEditFragment : Fragment(R.layout.fragment_add_edit) {
 
     private val viewModel: TaskViewModel by lazy {
@@ -24,12 +24,29 @@ class AddEditFragment : Fragment(R.layout.fragment_add_edit) {
     private var selectedTime: String? = null
     private var currentPlanDate: String = "" // Biến lưu trữ ngày đang được chọn
 
+    private var editingTaskId: Int = 0
+    private var isEditMode = false
+    private var isTaskCompleted = false
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentAddEditBinding.bind(view)
 
         // 1. Nhận ngày ban đầu từ màn hình trước
         currentPlanDate = arguments?.getString("selectedDate") ?: "2025-12-21"
+        val taskToEdit = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arguments?.getParcelable("task_to_edit", Task::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            arguments?.getParcelable<Task>("task_to_edit")
+        }
+
+        taskToEdit?.let { task ->
+            isEditMode = true
+            editingTaskId = task.id
+            // Bạn nên tạo biến này ở cấp độ class để lưu trạng thái hoàn thành cũ
+             isTaskCompleted = task.isCompleted
+            fillTaskData(task)
+        }
         updateDateDisplay()
 
         // 2. LỰA CHỌN 1: Nhấn vào dòng ngày để hiện DatePickerDialog (Chọn nhanh)
@@ -91,17 +108,33 @@ class AddEditFragment : Fragment(R.layout.fragment_add_edit) {
                 }
 
                 // QUAN TRỌNG: Sử dụng currentPlanDate (ngày có thể đã thay đổi) thay vì planDate cũ
-                viewModel.addNewTask(
-                    title = title,
-                    description = "",
-                    priority = priority,
-                    date = currentPlanDate,
-                    reminderTime = if (binding.swAllDay.isChecked) null else selectedTime,
-                    repeatDays = if (repeatDays.isEmpty()) null else repeatDays,
-                    isAllDay = binding.swAllDay.isChecked
-                )
-
-                Log.d("TaskSave", "Đã lưu Task: $title cho ngày $currentPlanDate")
+                if (isEditMode) {
+                    // Chế độ Sửa: Truyền thêm ID và trạng thái hoàn thành cũ
+                    viewModel.updateTask(
+                        id = editingTaskId,
+                        title = title,
+                        description = "", // Có thể bổ sung etDescription.text nếu có
+                        priority = priority,
+                        date = currentPlanDate,
+                        reminderTime = if (binding.swAllDay.isChecked) null else selectedTime,
+                        repeatDays = if (repeatDays.isEmpty()) null else repeatDays,
+                        isAllDay = binding.swAllDay.isChecked,
+                        isCompleted = isTaskCompleted // Giữ nguyên trạng thái hoàn thành
+                    )
+                    Log.d("TaskUpdate", "Đã cập nhật Task ID: $editingTaskId")
+                } else {
+                    // Chế độ Thêm mới
+                    viewModel.addNewTask(
+                        title = title,
+                        description = "",
+                        priority = priority,
+                        date = currentPlanDate,
+                        reminderTime = if (binding.swAllDay.isChecked) null else selectedTime,
+                        repeatDays = if (repeatDays.isEmpty()) null else repeatDays,
+                        isAllDay = binding.swAllDay.isChecked
+                    )
+                    Log.d("TaskSave", "Đã thêm Task mới: $title")
+                }
 
                 //  quay về màn hình HomeFragment để xem danh sách
                 findNavController().popBackStack(R.id.homeFragment, false)
@@ -110,7 +143,28 @@ class AddEditFragment : Fragment(R.layout.fragment_add_edit) {
             }
         }
     }
+    private fun fillTaskData(task: Task) {
+        binding.etTitle.setText(task.title)
+        currentPlanDate = task.date
+        selectedTime = task.reminderTime
+        binding.swAllDay.isChecked = task.isAllDay
 
+        when (task.priority) {
+            Priority.HIGH -> binding.cgPriority.check(R.id.chipHigh)
+            Priority.MEDIUM -> binding.cgPriority.check(R.id.chipMedium)
+            Priority.LOW -> binding.cgPriority.check(R.id.chipLow)
+            Priority.URGENT -> { /* Check chip tương ứng nếu có */ }
+        }
+
+        // Tick lại các thứ lặp lại
+        val days = task.repeatDays?.split(",") ?: emptyList()
+        for (i in 0 until binding.cgRepeatDays.childCount) {
+            val chip = binding.cgRepeatDays.getChildAt(i) as Chip
+            if (days.contains(chip.text.toString())) {
+                chip.isChecked = true
+            }
+        }
+    }
     // Hàm cập nhật text hiển thị ngày
     private fun updateDateDisplay() {
         binding.tvPlanDate.text = "Ngày kế hoạch: $currentPlanDate"

@@ -13,7 +13,8 @@ import java.util.Locale
 class TaskAdapter(
     private var tasks: List<Task>,
     private val onTaskChecked: (Task) -> Unit,
-    private val onTaskLongClick: (Task) -> Unit
+    private val onTaskLongClick: (Task) -> Unit,
+    private val onEditClick: (Task) -> Unit
 ) : RecyclerView.Adapter<TaskAdapter.TaskViewHolder>() {
 
     class TaskViewHolder(val binding: ItemTaskBinding) : RecyclerView.ViewHolder(binding.root)
@@ -82,6 +83,9 @@ class TaskAdapter(
         // 4. Xử lý sự kiện click CheckBox
         binding.cbCompleted.setOnClickListener {
             onTaskChecked(currentTask)
+        }
+        binding.ivEdit.setOnClickListener {
+            onEditClick(currentTask)
         }
         binding.root.setOnLongClickListener {
             onTaskLongClick(currentTask)
