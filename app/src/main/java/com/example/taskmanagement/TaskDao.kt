@@ -2,6 +2,7 @@ package com.example.taskmanagement
 
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
+
 /**
  * Interface TaskDao: Định nghĩa các phương thức để truy vấn và thao tác với dữ liệu.
  * Room sẽ tự động tạo mã thực thi (Implementation) cho interface này.
@@ -16,13 +17,14 @@ interface TaskDao {
      */
     @Query("SELECT * FROM task_table ORDER BY date ASC")
     fun getAllTasks(): Flow<List<Task>>
+
     /**
      * Thêm một công việc mới vào cơ sở dữ liệu.
      * onConflict = OnConflictStrategy.REPLACE: Nếu ID đã tồn tại, nó sẽ ghi đè dữ liệu mới lên.
      * suspend: Hàm chạy trong luồng phụ (Coroutine), tránh làm đơ giao diện người dùng.
      * @return: Trả về ID của hàng vừa được chèn (kiểu Long).
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE) // Nên dùng REPLACE để tránh lỗi xung đột ID
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(task: Task): Long
 
     @Update
@@ -33,4 +35,21 @@ interface TaskDao {
 
     @Query("SELECT * FROM task_table WHERE id = :taskId")
     suspend fun getTaskById(taskId: Int): Task?
+
+    // === PHẦN BỔ SUNG ĐỂ HỖ TRỢ ĐỒNG BỘ ONLINE/OFFLINE ===
+
+    /**
+     * Lấy danh sách các công việc chưa được đồng bộ với server (isSynced = false).
+     * Được sử dụng bởi Repository để đẩy dữ liệu lên MockAPI khi có mạng trở lại.
+     */
+    @Query("SELECT * FROM task_table WHERE isSynced = 0")
+    suspend fun getUnsyncedTasks(): List<Task>
+
+    /**
+     * Xóa tất cả các công việc đã được đồng bộ thành công (isSynced = true).
+     * Hàm này cực kỳ quan trọng để dọn dẹp dữ liệu cũ tại máy cục bộ,
+     * giúp đồng bộ "gương soi" chính xác với Server MockAPI.
+     */
+    @Query("DELETE FROM task_table WHERE isSynced = 1")
+    suspend fun deleteSyncedTasks()
 }

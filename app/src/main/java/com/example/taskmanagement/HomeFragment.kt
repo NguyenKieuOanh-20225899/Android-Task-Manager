@@ -29,31 +29,44 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         // Khởi tạo ViewModel dùng chung Activity
         viewModel = ViewModelProvider(requireActivity()).get(TaskViewModel::class.java)
 
-        // --- 1. XỬ LÝ NGÀY THÁNG ---
+        // === 1. TỰ ĐỘNG ĐỒNG BỘ KHI VÀO MÀN HÌNH ===
+        viewModel.refreshDataFromRemote()
+
+        // --- 2. XỬ LÝ NGÀY THÁNG ---
         val selectedDate = arguments?.getString("selectedDate") ?: getCurrentDate()
         binding.tvCurrentDateHeader.text = "Kế hoạch ngày: $selectedDate"
         viewModel.filterByDate(selectedDate)
 
-        // --- 2. THIẾT LẬP ADAPTER ---
+        // --- 3. THIẾT LẬP ADAPTER ---
         val adapter = TaskAdapter(
             emptyList(),
             onTaskChecked = { task -> viewModel.toggleTaskStatus(task) },
             onTaskLongClick = { task -> showDeleteDialog(task) },
             onEditClick = { task ->
                 val bundle = Bundle().apply {
-                    putParcelable("task_to_edit", task) // Truyền toàn bộ đối tượng Task sang màn hình sửa
+                    putParcelable("task_to_edit", task)
                 }
                 findNavController().navigate(R.id.action_homeFragment_to_addEditFragment, bundle)
             }
         )
         binding.rvTasks.adapter = adapter
 
-        // --- 3. THIẾT LẬP MENU TOOLBAR ---
+        // === 4. XỬ LÝ LÀM MỚI (SWIPE TO REFRESH) ===
+        // Kích hoạt tính năng kéo để đồng bộ Online/Offline
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            viewModel.refreshDataFromRemote()
+        }
+
+        // --- 5. THIẾT LẬP MENU TOOLBAR ---
         setupToolbarMenu()
 
-        // --- 4. QUAN SÁT DỮ LIỆU (OBSERVERS) ---
+        // --- 6. QUAN SÁT DỮ LIỆU (OBSERVERS) ---
         viewModel.tasks.observe(viewLifecycleOwner) { updatedList ->
             adapter.updateData(updatedList)
+
+            // Tắt vòng xoay làm mới khi dữ liệu đã được cập nhật thành công
+            binding.swipeRefreshLayout.isRefreshing = false
+
             if (updatedList.isEmpty()) {
                 Log.d(TAG, "Không có nhiệm vụ cho ngày $selectedDate")
             }
@@ -63,7 +76,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             binding.pbCompletion.progress = rate
         }
 
-        // --- 5. SỰ KIỆN CLICK ---
+        // --- 7. SỰ KIỆN CLICK ---
         binding.fabAdd.setOnClickListener {
             val bundle = Bundle().apply {
                 putString("selectedDate", selectedDate)
@@ -100,7 +113,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                         true
                     }
                     R.id.menu_home -> {
-                        // Nếu đã ở Home rồi thì chỉ cần cuộn lên đầu hoặc làm mới
+                        // Khi nhấn Home trên menu, thực hiện làm mới dữ liệu từ server
+                        viewModel.refreshDataFromRemote()
                         viewModel.filterByDate(getCurrentDate())
                         true
                     }
@@ -127,6 +141,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume: Người dùng đang xem danh sách công việc")
+        // Mỗi khi người dùng quay lại màn hình chính, thử đồng bộ lại
+        viewModel.refreshDataFromRemote()
+        Log.d(TAG, "onResume: Kiểm tra đồng bộ dữ liệu")
     }
 }

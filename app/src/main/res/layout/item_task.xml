@@ -19,15 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="12dp">
-            <ImageView
-                android:id="@+id/ivEdit"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@android:drawable/ic_menu_edit"
-                android:padding="8dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent" />
+
             <View
                 android:id="@+id/priorityIndicator"
                 android:layout_width="5dp"
@@ -56,7 +48,7 @@
                 android:textSize="17sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/black"
-                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/ivSyncStatus"
                 app:layout_constraintStart_toEndOf="@id/cbCompleted"
                 app:layout_constraintTop_toTopOf="parent" />
 
@@ -69,8 +61,29 @@
                 android:textSize="13sp"
                 android:textColor="#757575"
                 app:layout_constraintStart_toEndOf="@id/cbCompleted"
-                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/ivSyncStatus"
                 app:layout_constraintTop_toBottomOf="@id/tvTitle" />
+
+            <ImageView
+                android:id="@+id/ivSyncStatus"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginEnd="8dp"
+                android:src="@android:drawable/stat_sys_upload_done"
+                android:alpha="@{task.isSynced ? 1.0f : 0.3f}"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/ivEdit"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <ImageView
+                android:id="@+id/ivEdit"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_menu_edit"
+                android:padding="8dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.cardview.widget.CardView>

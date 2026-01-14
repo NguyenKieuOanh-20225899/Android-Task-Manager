@@ -20,9 +20,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Kiểm tra và yêu cầu quyền thông báo cho Android 13+
+        // 1. Kiểm tra và yêu cầu quyền thông báo cho Android 13+ (Bắt buộc để chạy Reminder)
         requestNotificationPermission()
 
+        // 2. Thiết lập Navigation Component (Hoàn toàn bằng XML, không dùng Compose)
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
 
@@ -30,6 +31,10 @@ class MainActivity : AppCompatActivity() {
         setupActionBarWithNavController(navController)
     }
 
+    /**
+     * Yêu cầu quyền POST_NOTIFICATIONS cho Android 13+.
+     * Điều này cực kỳ quan trọng để NotificationReceiver có thể hiển thị nhắc nhở task.
+     */
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -60,6 +65,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Hỗ trợ nút Back trên Toolbar để quay lại các màn hình trước đó
+     */
     override fun onSupportNavigateUp(): Boolean {
         return navController.navigateUp() || super.onSupportNavigateUp()
     }
